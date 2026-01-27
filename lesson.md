@@ -309,7 +309,7 @@ SELECT
 FROM claim;
 ```
 
-> Return a table containing `id, car_id, travel_time, running_total` from claim, where `running_total` is the running sum of the `travel_time` column for each `car_id`.
+> Return a table containing `id, car_id, claim_amt, running_total` from claim, where `running_total` is the running sum of the `claim_amt` column for each `car_id`.
 
 #### Rank
 
