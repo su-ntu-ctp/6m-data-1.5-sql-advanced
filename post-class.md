@@ -56,16 +56,58 @@ A single .sql file with comments explaining your logic.
 
 ## **Solution** 
 
-Based on the assignment requirements from the GitHub repository, here's the comprehensive solution for the "Level Up: The Insurance Auditor Project": 
+### Question 1
 
-## Complete SQL Solution for Insurance Auditor Project
+```sql
+SELECT 
+    cl.id, 
+    cl.claim_date, 
+    cl.travel_time, 
+    cl.claim_amt,
+    c.car_type, 
+    c.car_use 
+FROM claim cl
+INNER JOIN car c ON cl.car_id = c.id;
+```
+
+### Question 2
+
+```sql
+SELECT 
+    id,
+    car_id,
+    travel_time,
+    SUM(travel_time) OVER (PARTITION BY car_id ORDER BY id) AS running_total
+FROM claim;
+```
+
+### Question 3
+
+```sql
+WITH AvgResale AS (
+    SELECT 
+        car_use,
+        AVG(resale_value) AS avg_resale_value
+    FROM car
+    GROUP BY car_use
+)
+SELECT 
+    c.id,
+    c.resale_value,
+    c.car_use
+FROM car c
+JOIN AvgResale a ON c.car_use = a.car_use
+WHERE c.resale_value < a.avg_resale_value;
+```
+
+
+### Complete SQL Solution for Insurance Auditor Project
 
 ```sql
 -- =============================================================================
 -- SafeDrive Insurance: Comprehensive Claims Analysis Report
 -- Lead Data Analyst: Insurance Auditor Project
 -- Purpose: Identify high-risk clients by car type and state
--- Date: February 14, 2026
 -- =============================================================================
 
 -- REQUIREMENT 1: Market Comparison
@@ -189,4 +231,7 @@ The solution employs a four-stage CTE pipeline:
 | Bob Wilson  | NY    | Truck    | 18000.00     | 1          |
 | Alice Brown | NY    | Sedan    | 14000.00     | 2          |
 
-This solution directly addresses the CEO's concern about disproportionately expensive car types in specific cities by providing actionable insights into high-risk client profiles across geographic regions. [github](https://github.com/su-ntu-ctp/6m-data-1.5-sql-advanced/blob/main/post-class.md)
+This solution directly addresses the CEO's concern about disproportionately expensive car types in specific cities by providing actionable insights into high-risk client profiles across geographic regions.
+
+
+
