@@ -1,0 +1,1421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SQL Visualized — Joins &amp; Windows</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,800;1,9..144,400;1,9..144,600&family=JetBrains+Mono:wght@400;500;700&family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F2EDE0;
+    --paper: #FBF7EC;
+    --ink: #171512;
+    --ink-soft: #4A453B;
+    --rule: #1715121A;
+    --rule-strong: #17151238;
+
+    --claim: #C23A1C;
+    --claim-soft: #F7DBD1;
+    --car: #1F5E8B;
+    --car-soft: #D4E3EE;
+    --match: #4F7A2C;
+    --match-soft: #D9E6C6;
+    --accent: #C68A14;
+    --accent-soft: #F3E3B8;
+    --null: #6B645A;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Geist', -apple-system, sans-serif;
+    font-size: 15px;
+    line-height: 1.4;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background-image:
+      radial-gradient(circle at 20% 10%, rgba(198, 138, 20, 0.08), transparent 40%),
+      radial-gradient(circle at 85% 80%, rgba(31, 94, 139, 0.06), transparent 50%);
+    padding: 28px 40px 60px;
+  }
+
+  /* ============ HEADER ============ */
+  header {
+    max-width: 1440px;
+    margin: 0 auto 24px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: end;
+    gap: 24px;
+    border-bottom: 1px solid var(--rule-strong);
+    padding-bottom: 18px;
+  }
+
+  .brand {
+    font-family: 'Fraunces', serif;
+    font-weight: 800;
+    font-size: 44px;
+    line-height: 0.95;
+    letter-spacing: -0.03em;
+  }
+
+  .brand em {
+    font-style: italic;
+    font-weight: 400;
+    color: var(--claim);
+  }
+
+  .subtitle {
+    font-size: 13px;
+    color: var(--ink-soft);
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    margin-top: 6px;
+    font-weight: 500;
+  }
+
+  nav.tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--paper);
+    border: 1px solid var(--rule-strong);
+    padding: 4px;
+    border-radius: 2px;
+  }
+
+  nav.tabs button {
+    font-family: 'Geist', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border: none;
+    background: transparent;
+    color: var(--ink-soft);
+    padding: 10px 18px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.2s ease;
+  }
+
+  nav.tabs button:hover { color: var(--ink); }
+
+  nav.tabs button.active {
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  main {
+    max-width: 1440px;
+    margin: 0 auto;
+  }
+
+  /* ============ SECTION LAYOUT ============ */
+  section.panel {
+    display: none;
+  }
+  section.panel.active { display: block; }
+
+  .section-head {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+    margin-bottom: 20px;
+    align-items: start;
+  }
+
+  .lesson-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+  }
+
+  .section-title {
+    font-family: 'Fraunces', serif;
+    font-size: 32px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.05;
+  }
+  .section-title em {
+    font-style: italic;
+    color: var(--claim);
+  }
+
+  .explanation {
+    font-size: 14px;
+    color: var(--ink-soft);
+    line-height: 1.55;
+    max-width: 520px;
+  }
+
+  /* ============ CONTROL BAR ============ */
+  .control-bar {
+    display: flex;
+    gap: 0;
+    margin-bottom: 24px;
+    border: 1px solid var(--rule-strong);
+    background: var(--paper);
+    width: fit-content;
+  }
+
+  .control-bar button {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    padding: 14px 22px;
+    border: none;
+    border-right: 1px solid var(--rule);
+    background: transparent;
+    color: var(--ink-soft);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-transform: uppercase;
+  }
+
+  .control-bar button:last-child { border-right: none; }
+
+  .control-bar button:hover {
+    background: var(--bg);
+    color: var(--ink);
+  }
+
+  .control-bar button.active {
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  /* ============ JOINS LAYOUT ============ */
+  .joins-stage {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr;
+    gap: 32px;
+    align-items: start;
+  }
+
+  .source-tables {
+    position: relative;
+    background: var(--paper);
+    border: 1px solid var(--rule-strong);
+    padding: 24px;
+  }
+
+  .source-head {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .tables-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 80px;
+    position: relative;
+  }
+
+  #joinLines {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    overflow: visible;
+    z-index: 1;
+  }
+
+  /* ============ DATA TABLE STYLING ============ */
+  .data-table {
+    border-collapse: collapse;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    width: 100%;
+    position: relative;
+    z-index: 2;
+  }
+
+  .data-table caption {
+    text-align: left;
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 18px;
+    font-weight: 600;
+    padding-bottom: 10px;
+    caption-side: top;
+  }
+
+  .data-table.claim caption { color: var(--claim); }
+  .data-table.car caption { color: var(--car); }
+
+  .data-table th,
+  .data-table td {
+    padding: 9px 10px;
+    text-align: left;
+    border-bottom: 1px solid var(--rule);
+    white-space: nowrap;
+  }
+
+  .data-table th {
+    font-weight: 500;
+    color: var(--ink-soft);
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    border-bottom: 1.5px solid var(--ink);
+  }
+
+  .data-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+  .data-table tr {
+    transition: background-color 0.4s ease, opacity 0.4s ease;
+  }
+
+  .data-table tr[data-status="match"] {
+    background: var(--match-soft);
+  }
+  .data-table tr[data-status="match"] td:first-child {
+    box-shadow: inset 3px 0 0 var(--match);
+  }
+
+  .data-table tr[data-status="left-only"] {
+    background: var(--claim-soft);
+  }
+  .data-table tr[data-status="left-only"] td:first-child {
+    box-shadow: inset 3px 0 0 var(--claim);
+  }
+
+  .data-table tr[data-status="right-only"] {
+    background: var(--car-soft);
+  }
+  .data-table tr[data-status="right-only"] td:first-child {
+    box-shadow: inset 3px 0 0 var(--car);
+  }
+
+  .data-table tr[data-status="excluded"] {
+    opacity: 0.25;
+  }
+
+  .null-cell {
+    color: var(--null);
+    font-style: italic;
+    font-size: 11px;
+  }
+
+  /* ============ RESULT PANEL ============ */
+  .result-panel {
+    background: var(--paper);
+    border: 1px solid var(--rule-strong);
+    padding: 24px;
+    position: sticky;
+    top: 20px;
+  }
+
+  .result-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 14px;
+  }
+
+  .result-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .result-count {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 20px;
+  }
+  .result-count .n {
+    color: var(--claim);
+    font-size: 32px;
+    margin-right: 4px;
+  }
+
+  .sql-block {
+    background: var(--ink);
+    color: var(--paper);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 16px 18px;
+    margin-bottom: 18px;
+    line-height: 1.55;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  .sql-block .kw { color: #E6B85C; font-weight: 600; }
+  .sql-block .tbl { color: #7EB8E0; }
+  .sql-block .col { color: #F2EDE0; }
+  .sql-block .cmt { color: #8A8275; font-style: italic; }
+
+  .result-table-wrap {
+    max-height: 420px;
+    overflow-y: auto;
+    border: 1px solid var(--rule);
+  }
+
+  .result-table {
+    border-collapse: collapse;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    width: 100%;
+  }
+
+  .result-table th {
+    position: sticky;
+    top: 0;
+    background: var(--paper);
+    border-bottom: 1.5px solid var(--ink);
+    padding: 8px;
+    font-weight: 500;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-soft);
+    text-align: left;
+    z-index: 3;
+  }
+
+  .result-table td {
+    padding: 7px 8px;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .result-table tr {
+    animation: fadeInRow 0.4s ease forwards;
+    opacity: 0;
+  }
+
+  @keyframes fadeInRow {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .result-table tr.match-row td {
+    background: color-mix(in srgb, var(--match-soft) 40%, transparent);
+  }
+  .result-table tr.left-only-row td {
+    background: color-mix(in srgb, var(--claim-soft) 40%, transparent);
+  }
+  .result-table tr.right-only-row td {
+    background: color-mix(in srgb, var(--car-soft) 40%, transparent);
+  }
+
+  /* ============ VENN DIAGRAM ============ */
+  .venn {
+    display: flex;
+    justify-content: center;
+    margin: 10px 0 16px;
+  }
+
+  .venn svg { width: 180px; height: 80px; }
+
+  /* ============ WINDOW FUNCTIONS ============ */
+  .window-stage {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 32px;
+    align-items: start;
+  }
+
+  .window-visual {
+    background: var(--paper);
+    border: 1px solid var(--rule-strong);
+    padding: 24px;
+  }
+
+  .window-table-wrap {
+    position: relative;
+  }
+
+  .window-table {
+    border-collapse: collapse;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    width: 100%;
+  }
+
+  .window-table th {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-soft);
+    font-weight: 500;
+    padding: 10px 12px;
+    border-bottom: 1.5px solid var(--ink);
+    text-align: left;
+  }
+
+  .window-table th.derived {
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-bottom: 1.5px solid var(--accent);
+  }
+
+  .window-table th.hidden-col,
+  .window-table td.hidden-col {
+    display: none;
+  }
+
+  .window-table td {
+    padding: 12px 12px;
+    border-bottom: 1px solid var(--rule);
+    transition: background-color 0.3s ease;
+  }
+
+  .window-table td.derived {
+    background: color-mix(in srgb, var(--accent-soft) 70%, transparent);
+    color: var(--ink);
+    font-weight: 600;
+    position: relative;
+  }
+
+  .window-table td.derived.new-value {
+    animation: pulseValue 0.6s ease;
+  }
+
+  @keyframes pulseValue {
+    0% { background: var(--accent); color: var(--paper); transform: scale(1); }
+    50% { transform: scale(1.03); }
+    100% { background: color-mix(in srgb, var(--accent-soft) 70%, transparent); color: var(--ink); transform: scale(1); }
+  }
+
+  .window-table tr.partition-start td {
+    border-top: 2px solid var(--car);
+  }
+
+  .partition-badge {
+    display: inline-block;
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    padding: 2px 8px;
+    border-radius: 10px;
+    text-transform: uppercase;
+    margin-right: 6px;
+  }
+
+  .partition-badge.p1 { background: #E6D4E2; color: #6B2F5F; }
+  .partition-badge.p2 { background: #D4E4E2; color: #2B5D57; }
+  .partition-badge.p3 { background: #E6DFC8; color: #6B5A1F; }
+
+  .window-pointer {
+    position: absolute;
+    left: -14px;
+    top: 0;
+    width: 10px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    pointer-events: none;
+    transition: top 0.35s cubic-bezier(0.22, 0.9, 0.3, 1);
+    z-index: 5;
+  }
+
+  .window-pointer::after {
+    content: '';
+    width: 0;
+    height: 0;
+    border-top: 7px solid transparent;
+    border-bottom: 7px solid transparent;
+    border-left: 9px solid var(--accent);
+  }
+
+  .group-by-table {
+    border-collapse: collapse;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    width: 100%;
+    margin-top: 10px;
+  }
+
+  .group-by-table th,
+  .group-by-table td {
+    padding: 12px;
+    border-bottom: 1px solid var(--rule);
+    text-align: left;
+  }
+  .group-by-table th {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-soft);
+    font-weight: 500;
+    border-bottom: 1.5px solid var(--ink);
+  }
+
+  .comparison-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+    align-items: start;
+  }
+
+  .comparison-col h3 {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  .comparison-col.gb h3 { color: var(--ink-soft); }
+  .comparison-col.win h3 { color: var(--accent); }
+
+  .comparison-note {
+    font-size: 11px;
+    color: var(--ink-soft);
+    margin-bottom: 12px;
+    font-style: italic;
+  }
+
+  /* ============ LEGEND ============ */
+  .legend {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 20px;
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    align-items: center;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .legend-swatch {
+    width: 14px;
+    height: 14px;
+    border: 1px solid var(--rule-strong);
+  }
+
+  /* ============ REFLECTION NOTE ============ */
+  .teacher-note {
+    margin-top: 16px;
+    padding: 14px 18px;
+    background: #1715120A;
+    border-left: 3px solid var(--claim);
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 15px;
+    color: var(--ink);
+    line-height: 1.5;
+    min-height: 60px;
+    transition: opacity 0.3s;
+  }
+  .teacher-note::before {
+    content: 'Teaching point — ';
+    font-weight: 600;
+    font-style: normal;
+    font-family: 'Geist', sans-serif;
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--claim);
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  /* ============ FOOTER ============ */
+  .foot {
+    max-width: 1440px;
+    margin: 30px auto 0;
+    padding-top: 14px;
+    border-top: 1px solid var(--rule);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    color: var(--ink-soft);
+    display: flex;
+    justify-content: space-between;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 1100px) {
+    .joins-stage, .window-stage { grid-template-columns: 1fr; }
+    .result-panel { position: static; }
+    .tables-grid { gap: 40px; }
+    body { padding: 20px; }
+  }
+
+  @media (max-width: 700px) {
+    .section-head { grid-template-columns: 1fr; }
+    .tables-grid { grid-template-columns: 1fr; gap: 24px; }
+    #joinLines { display: none; }
+    .comparison-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="brand">SQL <em>Visualized</em></div>
+    <div class="subtitle">Lesson 1.5 · Joins &amp; Window Functions · Live Teaching Aid</div>
+  </div>
+  <nav class="tabs">
+    <button data-tab="joins" class="active">Joins</button>
+    <button data-tab="windows">Window Functions</button>
+  </nav>
+</header>
+
+<main>
+
+  <!-- ======================================================= -->
+  <!-- ======================= JOINS ========================= -->
+  <!-- ======================================================= -->
+  <section id="panel-joins" class="panel active">
+
+    <div class="section-head">
+      <div>
+        <div class="lesson-label">Part 1 — The Map and the Bridge</div>
+        <h2 class="section-title">How two tables become <em>one</em>.</h2>
+      </div>
+      <p class="explanation">
+        We have six <strong style="color:var(--claim)">claims</strong> and four <strong style="color:var(--car)">cars</strong>.
+        Some claims reference a car. Some don't. One car has never been claimed.
+        Pick a join below and watch the result on the right.
+      </p>
+    </div>
+
+    <div class="control-bar" id="joinControls">
+      <button data-join="inner" class="active">Inner Join</button>
+      <button data-join="left">Left Join</button>
+      <button data-join="right">Right Join</button>
+      <button data-join="full">Full Outer Join</button>
+    </div>
+
+    <div class="legend">
+      <div class="legend-item"><div class="legend-swatch" style="background:var(--match-soft);border-color:var(--match)"></div>Matched in both</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:var(--claim-soft);border-color:var(--claim)"></div>Claim only (no car)</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:var(--car-soft);border-color:var(--car)"></div>Car only (no claim)</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:transparent;opacity:0.3"></div>Excluded from result</div>
+    </div>
+
+    <div class="joins-stage">
+      <div class="source-tables">
+        <div class="source-head">
+          <span>Source Tables</span>
+          <span>ON claim.car_id = car.id</span>
+        </div>
+
+        <div class="venn" id="vennBox"></div>
+
+        <div class="tables-grid">
+          <svg id="joinLines"></svg>
+          <table class="data-table claim" id="claimTable">
+            <caption>claim</caption>
+            <thead>
+              <tr><th>id</th><th>date</th><th>amt</th><th>car_id</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+
+          <table class="data-table car" id="carTable">
+            <caption>car</caption>
+            <thead>
+              <tr><th>id</th><th>type</th><th>resale</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="teacher-note" id="joinNote"></div>
+      </div>
+
+      <div class="result-panel">
+        <div class="result-head">
+          <div class="result-label">Result</div>
+          <div class="result-count"><span class="n" id="resultN">—</span>rows</div>
+        </div>
+
+        <div class="sql-block" id="joinSql"></div>
+
+        <div class="result-table-wrap">
+          <table class="result-table" id="joinResult">
+            <thead>
+              <tr>
+                <th>claim.id</th><th>amt</th><th>car_id</th>
+                <th>car.id</th><th>car_type</th><th>resale</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================= -->
+  <!-- ================= WINDOW FUNCTIONS ==================== -->
+  <!-- ======================================================= -->
+  <section id="panel-windows" class="panel">
+
+    <div class="section-head">
+      <div>
+        <div class="lesson-label">Part 2 — The Moving Window</div>
+        <h2 class="section-title">Every row <em>keeps its seat.</em></h2>
+      </div>
+      <p class="explanation">
+        <code style="font-family:'JetBrains Mono',monospace;font-size:12px;background:#1715120F;padding:2px 6px">GROUP BY</code>
+        collapses rows into summaries. A <strong style="color:var(--accent)">window function</strong>
+        adds a calculated column <em>without losing any row</em> — running totals, ranks, differences, all visible row-by-row.
+      </p>
+    </div>
+
+    <div class="control-bar" id="winControls">
+      <button data-win="running" class="active">Running Total</button>
+      <button data-win="partition">Running Total <em style="font-family:Fraunces;font-style:italic;text-transform:none;padding:0 3px">per</em> Car</button>
+      <button data-win="rank">Rank per Car</button>
+      <button data-win="groupby">vs Group By</button>
+    </div>
+
+    <div id="winBody">
+      <!-- rendered by JS depending on selection -->
+    </div>
+  </section>
+
+</main>
+
+<div class="foot">
+  <span>Unit 1.5 · DuckDB · DbGate</span>
+  <span id="footStatus">Ready</span>
+</div>
+
+<script>
+/* ============================================================
+   DATA — small subset so students can track every row visually.
+   ============================================================ */
+
+const CLAIMS = [
+  { id: 1, date: '2024-01-05', amt: 1000, car_id: 101 },
+  { id: 2, date: '2024-01-12', amt:  800, car_id: 101 },
+  { id: 3, date: '2024-02-03', amt:  500, car_id: 102 },
+  { id: 4, date: '2024-02-20', amt: 1200, car_id: 103 },
+  { id: 5, date: '2024-03-15', amt:  800, car_id: 101 },
+  { id: 6, date: '2024-03-28', amt:  300, car_id: null }, // orphan claim — no matching car
+];
+
+const CARS = [
+  { id: 101, type: 'Sedan',   resale: 15000 },
+  { id: 102, type: 'SUV',     resale: 22000 },
+  { id: 103, type: 'Sports',  resale: 35000 },
+  { id: 104, type: 'Minivan', resale: 18000 }, // never claimed
+];
+
+/* ============================================================
+   TAB SWITCHING
+   ============================================================ */
+
+document.querySelectorAll('nav.tabs button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('nav.tabs button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const tab = btn.dataset.tab;
+    document.querySelectorAll('section.panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('panel-' + tab).classList.add('active');
+    if (tab === 'joins') { drawJoinLines(currentJoin); }
+  });
+});
+
+/* ============================================================
+   JOIN TABLE RENDER
+   ============================================================ */
+
+function fmt(v) {
+  if (v === null || v === undefined) return '<span class="null-cell">NULL</span>';
+  if (typeof v === 'number') return v.toLocaleString('en-US');
+  return v;
+}
+
+function renderClaimTable() {
+  const tbody = document.querySelector('#claimTable tbody');
+  tbody.innerHTML = CLAIMS.map(c => `
+    <tr data-claim="${c.id}">
+      <td>${c.id}</td>
+      <td>${c.date}</td>
+      <td class="num">${c.amt.toLocaleString()}</td>
+      <td class="num">${c.car_id === null ? '<span class="null-cell">NULL</span>' : c.car_id}</td>
+    </tr>
+  `).join('');
+}
+
+function renderCarTable() {
+  const tbody = document.querySelector('#carTable tbody');
+  tbody.innerHTML = CARS.map(c => `
+    <tr data-car="${c.id}">
+      <td>${c.id}</td>
+      <td>${c.type}</td>
+      <td class="num">${c.resale.toLocaleString()}</td>
+    </tr>
+  `).join('');
+}
+
+renderClaimTable();
+renderCarTable();
+
+/* ============================================================
+   JOIN LOGIC
+   ============================================================ */
+
+function computeJoin(kind) {
+  const rows = [];
+  // Inner + Left: iterate claims
+  if (kind === 'inner' || kind === 'left' || kind === 'full') {
+    CLAIMS.forEach(cl => {
+      const matched = CARS.find(c => c.id === cl.car_id);
+      if (matched) {
+        rows.push({ claim: cl, car: matched, kind: 'match' });
+      } else if (kind === 'left' || kind === 'full') {
+        rows.push({ claim: cl, car: null, kind: 'left-only' });
+      }
+    });
+  }
+  if (kind === 'right' || kind === 'full') {
+    // Start from cars for right/full; skip those already included
+    const seenCars = new Set(rows.map(r => r.car && r.car.id).filter(Boolean));
+    if (kind === 'right') {
+      // right: iterate cars, find claims
+      CARS.forEach(c => {
+        const matchedClaims = CLAIMS.filter(cl => cl.car_id === c.id);
+        if (matchedClaims.length) {
+          matchedClaims.forEach(cl => rows.push({ claim: cl, car: c, kind: 'match' }));
+        } else {
+          rows.push({ claim: null, car: c, kind: 'right-only' });
+        }
+      });
+    } else {
+      // full: add cars that have no claim
+      CARS.forEach(c => {
+        if (!seenCars.has(c.id)) {
+          rows.push({ claim: null, car: c, kind: 'right-only' });
+        }
+      });
+    }
+  }
+  return rows;
+}
+
+/* ============================================================
+   JOIN VISUAL UPDATE
+   ============================================================ */
+
+const JOIN_NOTES = {
+  inner: 'Only rows that match in BOTH tables survive. The orphan claim (id 6, car NULL) and the unclaimed Minivan (car 104) are both dropped.',
+  left:  'All claims stay, even the one with no car — it just gets NULL on the car side. The unclaimed Minivan is still excluded.',
+  right: 'All cars stay, even the Minivan that was never claimed. The orphan claim (id 6, no car) is excluded.',
+  full:  'Nothing is excluded. Every claim AND every car is represented, with NULLs wherever one side is missing.',
+};
+
+const JOIN_SQL = {
+  inner: `<span class="cmt">-- Inner: only matching rows on both sides</span>
+<span class="kw">SELECT</span> <span class="col">*</span>
+<span class="kw">FROM</span> <span class="tbl">claim</span>
+<span class="kw">INNER JOIN</span> <span class="tbl">car</span>
+  <span class="kw">ON</span> claim.car_id = car.id;`,
+  left: `<span class="cmt">-- Left: keep every row of claim</span>
+<span class="kw">SELECT</span> <span class="col">*</span>
+<span class="kw">FROM</span> <span class="tbl">claim</span>
+<span class="kw">LEFT JOIN</span> <span class="tbl">car</span>
+  <span class="kw">ON</span> claim.car_id = car.id;`,
+  right: `<span class="cmt">-- Right: keep every row of car</span>
+<span class="kw">SELECT</span> <span class="col">*</span>
+<span class="kw">FROM</span> <span class="tbl">claim</span>
+<span class="kw">RIGHT JOIN</span> <span class="tbl">car</span>
+  <span class="kw">ON</span> claim.car_id = car.id;`,
+  full: `<span class="cmt">-- Full: keep everyone on both sides</span>
+<span class="kw">SELECT</span> <span class="col">*</span>
+<span class="kw">FROM</span> <span class="tbl">claim</span>
+<span class="kw">FULL JOIN</span> <span class="tbl">car</span>
+  <span class="kw">ON</span> claim.car_id = car.id;`,
+};
+
+function renderVenn(kind) {
+  const cfg = {
+    inner: { a: 0.25, b: 0.25, mid: 1 },
+    left:  { a: 1,    b: 0.25, mid: 1 },
+    right: { a: 0.25, b: 1,    mid: 1 },
+    full:  { a: 1,    b: 1,    mid: 1 },
+  }[kind];
+
+  document.getElementById('vennBox').innerHTML = `
+    <svg viewBox="0 0 200 80">
+      <defs>
+        <clipPath id="clipA"><circle cx="70" cy="40" r="32"/></clipPath>
+        <clipPath id="clipB"><circle cx="130" cy="40" r="32"/></clipPath>
+      </defs>
+      <circle cx="70" cy="40" r="32" fill="var(--claim)" opacity="${cfg.a * 0.7}"/>
+      <circle cx="130" cy="40" r="32" fill="var(--car)" opacity="${cfg.b * 0.7}"/>
+      <g clip-path="url(#clipA)">
+        <circle cx="130" cy="40" r="32" fill="var(--match)" opacity="${cfg.mid * 0.95}"/>
+      </g>
+      <circle cx="70" cy="40" r="32" fill="none" stroke="var(--claim)" stroke-width="1.5" opacity="0.8"/>
+      <circle cx="130" cy="40" r="32" fill="none" stroke="var(--car)" stroke-width="1.5" opacity="0.8"/>
+      <text x="54" y="44" fill="var(--paper)" font-size="11" font-family="JetBrains Mono" font-weight="600" style="opacity:${cfg.a}">claim</text>
+      <text x="122" y="44" fill="var(--paper)" font-size="11" font-family="JetBrains Mono" font-weight="600" style="opacity:${cfg.b}">car</text>
+    </svg>
+  `;
+}
+
+let currentJoin = 'inner';
+
+function updateJoinView(kind) {
+  currentJoin = kind;
+
+  // buttons
+  document.querySelectorAll('#joinControls button').forEach(b => {
+    b.classList.toggle('active', b.dataset.join === kind);
+  });
+
+  // classify rows in source tables
+  const rows = computeJoin(kind);
+  const claimStatuses = new Map(); // claim.id -> status
+  const carStatuses = new Map();
+  rows.forEach(r => {
+    if (r.claim) {
+      const prev = claimStatuses.get(r.claim.id);
+      if (!prev || r.kind === 'match') claimStatuses.set(r.claim.id, r.kind);
+    }
+    if (r.car) {
+      const prev = carStatuses.get(r.car.id);
+      if (!prev || r.kind === 'match') carStatuses.set(r.car.id, r.kind);
+    }
+  });
+
+  document.querySelectorAll('#claimTable tbody tr').forEach(tr => {
+    const id = +tr.dataset.claim;
+    const s = claimStatuses.get(id);
+    tr.setAttribute('data-status', s || 'excluded');
+  });
+  document.querySelectorAll('#carTable tbody tr').forEach(tr => {
+    const id = +tr.dataset.car;
+    const s = carStatuses.get(id);
+    tr.setAttribute('data-status', s || 'excluded');
+  });
+
+  // result
+  document.getElementById('resultN').textContent = rows.length;
+  document.getElementById('joinSql').innerHTML = JOIN_SQL[kind];
+  document.getElementById('joinNote').textContent = JOIN_NOTES[kind];
+
+  const resultBody = document.querySelector('#joinResult tbody');
+  resultBody.innerHTML = rows.map(r => {
+    const cls = r.kind + '-row';
+    const cl = r.claim;
+    const c = r.car;
+    return `<tr class="${cls}">
+      <td>${cl ? cl.id : '<span class="null-cell">NULL</span>'}</td>
+      <td>${cl ? cl.amt.toLocaleString() : '<span class="null-cell">NULL</span>'}</td>
+      <td>${cl ? (cl.car_id === null ? '<span class="null-cell">NULL</span>' : cl.car_id) : '<span class="null-cell">NULL</span>'}</td>
+      <td>${c ? c.id : '<span class="null-cell">NULL</span>'}</td>
+      <td>${c ? c.type : '<span class="null-cell">NULL</span>'}</td>
+      <td>${c ? c.resale.toLocaleString() : '<span class="null-cell">NULL</span>'}</td>
+    </tr>`;
+  }).join('');
+
+  renderVenn(kind);
+  requestAnimationFrame(() => drawJoinLines(kind));
+}
+
+/* ============================================================
+   SVG CONNECTOR LINES between matched rows
+   ============================================================ */
+
+function drawJoinLines(kind) {
+  const svg = document.getElementById('joinLines');
+  const parent = svg.parentElement;
+  const parentRect = parent.getBoundingClientRect();
+  svg.setAttribute('width', parentRect.width);
+  svg.setAttribute('height', parentRect.height);
+  svg.innerHTML = '';
+
+  const claimRows = document.querySelectorAll('#claimTable tbody tr');
+  const carRows = document.querySelectorAll('#carTable tbody tr');
+
+  CLAIMS.forEach(cl => {
+    if (cl.car_id === null) return;
+    const car = CARS.find(c => c.id === cl.car_id);
+    if (!car) return;
+
+    const claimTr = [...claimRows].find(tr => +tr.dataset.claim === cl.id);
+    const carTr = [...carRows].find(tr => +tr.dataset.car === car.id);
+    if (!claimTr || !carTr) return;
+
+    const claimStatus = claimTr.getAttribute('data-status');
+    const carStatus = carTr.getAttribute('data-status');
+    if (claimStatus === 'excluded' || carStatus === 'excluded') return;
+
+    const a = claimTr.getBoundingClientRect();
+    const b = carTr.getBoundingClientRect();
+
+    const x1 = a.right - parentRect.left;
+    const y1 = a.top + a.height / 2 - parentRect.top;
+    const x2 = b.left - parentRect.left;
+    const y2 = b.top + b.height / 2 - parentRect.top;
+
+    const mx = (x1 + x2) / 2;
+    const path = `M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`;
+
+    const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    p.setAttribute('d', path);
+    p.setAttribute('fill', 'none');
+    p.setAttribute('stroke', 'var(--match)');
+    p.setAttribute('stroke-width', '1.5');
+    p.setAttribute('opacity', '0.55');
+    p.setAttribute('stroke-dasharray', '3 3');
+    svg.appendChild(p);
+  });
+}
+
+document.querySelectorAll('#joinControls button').forEach(btn => {
+  btn.addEventListener('click', () => updateJoinView(btn.dataset.join));
+});
+
+window.addEventListener('resize', () => drawJoinLines(currentJoin));
+
+updateJoinView('inner');
+
+/* ============================================================
+   WINDOW FUNCTION VIEWS
+   ============================================================ */
+
+const PARTITION_COLORS = {
+  101: 'p1',
+  102: 'p2',
+  103: 'p3',
+};
+
+const WIN_SQL = {
+  running: `<span class="cmt">-- Running total across ALL rows, ordered by id</span>
+<span class="kw">SELECT</span>
+  id, claim_amt,
+  <span class="kw">SUM</span>(claim_amt) <span class="kw">OVER</span> (<span class="kw">ORDER BY</span> id) <span class="kw">AS</span> running_total
+<span class="kw">FROM</span> <span class="tbl">claim</span>;`,
+  partition: `<span class="cmt">-- Running total resets for each car</span>
+<span class="kw">SELECT</span>
+  id, car_id, claim_amt,
+  <span class="kw">SUM</span>(claim_amt) <span class="kw">OVER</span> (
+    <span class="kw">PARTITION BY</span> car_id
+    <span class="kw">ORDER BY</span> id
+  ) <span class="kw">AS</span> running_total
+<span class="kw">FROM</span> <span class="tbl">claim</span>;`,
+  rank: `<span class="cmt">-- Rank claims from highest to lowest WITHIN each car</span>
+<span class="kw">SELECT</span>
+  id, car_id, claim_amt,
+  <span class="kw">RANK</span>() <span class="kw">OVER</span> (
+    <span class="kw">PARTITION BY</span> car_id
+    <span class="kw">ORDER BY</span> claim_amt <span class="kw">DESC</span>
+  ) <span class="kw">AS</span> amt_rank
+<span class="kw">FROM</span> <span class="tbl">claim</span>;`,
+  groupby: '',
+};
+
+const WIN_NOTES = {
+  running: 'The running total is the sum of every amount from the first row down to the current row. Watch the window expand.',
+  partition: 'PARTITION BY says "reset the window whenever car_id changes." Each car gets its own independent running total.',
+  rank: 'RANK orders within each partition. Car 101 has two claims tied at $800 — both get rank 2, then the next rank skips to 4.',
+  groupby: 'GROUP BY destroys detail. You get ONE row per car. Window functions let every claim keep its seat while still seeing the per-car totals alongside.',
+};
+
+const winBody = document.getElementById('winBody');
+
+function buildRunningRows() {
+  let total = 0;
+  // claims excluding the one with null car_id is irrelevant here — use all claims ordered by id
+  const ordered = [...CLAIMS].sort((a,b) => a.id - b.id);
+  return ordered.map(c => {
+    total += c.amt;
+    return { ...c, running: total, resetBefore: false };
+  });
+}
+
+function buildPartitionRows() {
+  // mimic SQL result: rows ordered by (car_id, id), running_total per partition
+  const sorted = [...CLAIMS].filter(c => c.car_id !== null).sort((a,b) => (a.car_id - b.car_id) || (a.id - b.id));
+  // append NULL-car claim at end
+  const nullClaims = CLAIMS.filter(c => c.car_id === null);
+  const out = [];
+  let currentCar = null;
+  let running = 0;
+  [...sorted, ...nullClaims].forEach(c => {
+    const isReset = c.car_id !== currentCar;
+    if (isReset) running = 0;
+    running += c.amt;
+    out.push({ ...c, running, resetBefore: isReset });
+    currentCar = c.car_id;
+  });
+  return out;
+}
+
+function buildRankRows() {
+  // partition by car_id, order by amt desc, include rank with ties
+  const groups = {};
+  CLAIMS.forEach(c => {
+    const key = c.car_id === null ? 'null' : c.car_id;
+    (groups[key] = groups[key] || []).push(c);
+  });
+  const out = [];
+  Object.keys(groups).sort((a,b) => {
+    if (a === 'null') return 1;
+    if (b === 'null') return -1;
+    return +a - +b;
+  }).forEach(key => {
+    const arr = groups[key].sort((a,b) => b.amt - a.amt);
+    let rank = 0;
+    let prevAmt = null;
+    arr.forEach((c, i) => {
+      if (c.amt !== prevAmt) rank = i + 1;
+      out.push({ ...c, rank, resetBefore: i === 0 });
+      prevAmt = c.amt;
+    });
+  });
+  return out;
+}
+
+function buildGroupByRows() {
+  const groups = {};
+  CLAIMS.forEach(c => {
+    if (c.car_id === null) return;
+    (groups[c.car_id] = groups[c.car_id] || []).push(c.amt);
+  });
+  return Object.keys(groups).sort((a,b) => +a - +b).map(k => ({
+    car_id: +k,
+    count: groups[k].length,
+    total: groups[k].reduce((s,x) => s+x, 0),
+  }));
+}
+
+function partitionBadge(carId) {
+  if (carId === null) return `<span class="partition-badge" style="background:#EADDD0;color:#6B4A2F">NULL</span>`;
+  const cls = PARTITION_COLORS[carId] || 'p1';
+  return `<span class="partition-badge ${cls}">car ${carId}</span>`;
+}
+
+function renderWindowTable(kind, rows, extra = {}) {
+  const hasPartition = kind === 'partition' || kind === 'rank';
+  const derivedHeader = kind === 'rank' ? 'amt_rank' : 'running_total';
+  const derivedClass = 'derived';
+
+  let html = `
+    <table class="window-table">
+      <thead>
+        <tr>
+          <th>id</th>
+          <th${hasPartition ? '' : ' class="hidden-col"'}>car_id</th>
+          <th>claim_amt</th>
+          <th class="${derivedClass}">${derivedHeader}</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+  rows.forEach((r, i) => {
+    const derivedVal = kind === 'rank' ? r.rank : r.running;
+    const resetCls = hasPartition && r.resetBefore ? 'partition-start' : '';
+    html += `
+      <tr class="${resetCls}">
+        <td>${r.id}</td>
+        <td ${hasPartition ? '' : 'class="hidden-col"'}>${hasPartition ? partitionBadge(r.car_id) : ''}</td>
+        <td>$${r.amt.toLocaleString()}</td>
+        <td class="derived new-value">${kind === 'rank' ? '#' + derivedVal : '$' + derivedVal.toLocaleString()}</td>
+      </tr>
+    `;
+  });
+
+  html += '</tbody></table>';
+  return html;
+}
+
+function renderCompareView() {
+  const winRows = buildPartitionRows().filter(r => r.car_id !== null);
+  const gbRows = buildGroupByRows();
+
+  // For the window side we only want the FINAL running total, which equals the total. Let's show rows with highlighted running.
+  return `
+    <div class="comparison-grid">
+      <div class="comparison-col gb">
+        <h3>GROUP BY — summaries only</h3>
+        <div class="comparison-note">One row per car. Individual claims are gone.</div>
+        <table class="group-by-table">
+          <thead>
+            <tr><th>car_id</th><th>count(*)</th><th>sum(amt)</th></tr>
+          </thead>
+          <tbody>
+            ${gbRows.map(r => `
+              <tr>
+                <td>${partitionBadge(r.car_id)}</td>
+                <td>${r.count}</td>
+                <td>$${r.total.toLocaleString()}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        <pre class="sql-block" style="margin-top:14px"><span class="kw">SELECT</span> car_id,
+  <span class="kw">COUNT</span>(*),
+  <span class="kw">SUM</span>(claim_amt)
+<span class="kw">FROM</span> <span class="tbl">claim</span>
+<span class="kw">GROUP BY</span> car_id;</pre>
+      </div>
+
+      <div class="comparison-col win">
+        <h3>Window function — keeps every row</h3>
+        <div class="comparison-note">Every claim is still visible, with its cumulative total alongside.</div>
+        <table class="window-table">
+          <thead>
+            <tr>
+              <th>id</th><th>car_id</th><th>claim_amt</th>
+              <th class="derived">running_total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${winRows.map(r => `
+              <tr class="${r.resetBefore ? 'partition-start' : ''}">
+                <td>${r.id}</td>
+                <td>${partitionBadge(r.car_id)}</td>
+                <td>$${r.amt.toLocaleString()}</td>
+                <td class="derived">$${r.running.toLocaleString()}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        <pre class="sql-block" style="margin-top:14px"><span class="kw">SELECT</span> id, car_id, claim_amt,
+  <span class="kw">SUM</span>(claim_amt) <span class="kw">OVER</span> (
+    <span class="kw">PARTITION BY</span> car_id
+    <span class="kw">ORDER BY</span> id
+  ) <span class="kw">AS</span> running_total
+<span class="kw">FROM</span> <span class="tbl">claim</span>;</pre>
+      </div>
+    </div>
+  `;
+}
+
+let winPointerInterval = null;
+
+function renderWindowPanel(kind) {
+  if (winPointerInterval) { clearInterval(winPointerInterval); winPointerInterval = null; }
+
+  if (kind === 'groupby') {
+    winBody.innerHTML = `
+      <div class="joins-stage" style="grid-template-columns: 1fr">
+        <div class="window-visual">
+          ${renderCompareView()}
+          <div class="teacher-note">${WIN_NOTES.groupby}</div>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  const rows = kind === 'running' ? buildRunningRows()
+             : kind === 'partition' ? buildPartitionRows()
+             : buildRankRows();
+
+  winBody.innerHTML = `
+    <div class="window-stage">
+      <div class="window-visual">
+        <div class="window-table-wrap">
+          <div class="window-pointer" id="winPointer"></div>
+          ${renderWindowTable(kind, rows)}
+        </div>
+        <div class="teacher-note">${WIN_NOTES[kind]}</div>
+      </div>
+      <div class="result-panel">
+        <div class="result-head">
+          <div class="result-label">Equivalent SQL</div>
+        </div>
+        <div class="sql-block">${WIN_SQL[kind]}</div>
+        <div style="font-family:'Fraunces',serif;font-style:italic;font-size:15px;color:var(--ink-soft);line-height:1.5">
+          ${kind === 'running'
+            ? 'The <strong style="color:var(--accent)">window</strong> starts at the first row and grows, one row at a time, down to the current row. The sum of everything inside the window is what gets written into the new column.'
+            : kind === 'partition'
+            ? 'With <strong style="color:var(--accent)">PARTITION BY</strong>, the window can never cross from one car to another. Each car gets its own private window that starts empty and grows within its group.'
+            : 'RANK looks within each partition and assigns positions. <strong style="color:var(--accent)">Ties share a rank</strong>, then the next rank skips the gap (1, 2, 2, 4 — not 1, 2, 2, 3).'}
+        </div>
+      </div>
+    </div>
+  `;
+
+  // animate the pointer sweeping down each row to show "the window moving"
+  const tbodyRows = winBody.querySelectorAll('.window-table tbody tr');
+  if (!tbodyRows.length) return;
+  const pointer = document.getElementById('winPointer');
+  let i = 0;
+  const move = () => {
+    const tr = tbodyRows[i];
+    const tbodyRect = tr.parentElement.getBoundingClientRect();
+    const rowRect = tr.getBoundingClientRect();
+    pointer.style.top = (rowRect.top - tbodyRect.top + rowRect.height/2 - 6) + 'px';
+    i = (i + 1) % tbodyRows.length;
+  };
+  move();
+  winPointerInterval = setInterval(move, 1100);
+}
+
+document.querySelectorAll('#winControls button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#winControls button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderWindowPanel(btn.dataset.win);
+  });
+});
+
+renderWindowPanel('running');
+
+/* ============================================================
+   KEYBOARD SHORTCUTS for classroom use
+   ============================================================ */
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  const activeTab = document.querySelector('nav.tabs button.active').dataset.tab;
+  if (activeTab === 'joins') {
+    const map = { '1': 'inner', '2': 'left', '3': 'right', '4': 'full' };
+    if (map[e.key]) {
+      updateJoinView(map[e.key]);
+      document.getElementById('footStatus').textContent = 'Join: ' + map[e.key];
+    }
+  } else {
+    const map = { '1': 'running', '2': 'partition', '3': 'rank', '4': 'groupby' };
+    if (map[e.key]) {
+      document.querySelectorAll('#winControls button').forEach(b => {
+        b.classList.toggle('active', b.dataset.win === map[e.key]);
+      });
+      renderWindowPanel(map[e.key]);
+      document.getElementById('footStatus').textContent = 'Window: ' + map[e.key];
+    }
+  }
+  // swap tabs with j / w
+  if (e.key === 'j') document.querySelector('nav.tabs button[data-tab="joins"]').click();
+  if (e.key === 'w') document.querySelector('nav.tabs button[data-tab="windows"]').click();
+});
+
+document.getElementById('footStatus').textContent = 'Press J / W to swap tab · 1–4 to pick variant';
+
+</script>
+
+</body>
+</html>
