@@ -281,6 +281,10 @@ Once that looks right, add one more `INNER JOIN` to bring in the city.
 <details>
  <summary>Solution for Exercise 3</summary>
 
+**Why 4 joins?** The information we need lives in 4 separate tables — the claim details are in `claim`, the car type is in `car`, the client's name is in `client`, and the city is in `address`. Think of each JOIN as walking from one filing cabinet to the next, using the ID on the current folder to locate the matching folder in the next cabinet.
+
+The chain is: `claim` → find the car (`car_id`) → find the client (`client_id`) → find the client's address (`address_id`). We use `INNER JOIN` throughout because we only want claims that have a complete, matched record in every table — a claim with no car on record wouldn't be useful in this report.
+
 ```sql
 SELECT
   cl.id, cl.claim_date, cl.claim_amt,
@@ -312,6 +316,23 @@ A standard `GROUP BY` is like asking "What is the average height of this class?"
 
 A **window function** is like keeping every student in the list, but adding extra notes beside each one — "class average height is 1.73 m" or "you are the 2nd tallest in your class" — while all the original student rows stay visible.
 
+**Why this matters:** In reporting you often need *both* — the individual row AND the group context. For example: "Show me each claim, and also how it compares to the average for its car type." `GROUP BY` can only give you one or the other. Window functions give you both in the same row.
+
+---
+
+> ### 🔤 Plain-English Jargon Buster
+>
+> | Technical term | What it actually means |
+> |---|---|
+> | **Window** | The set of rows the function "looks at" when calculating. You define the window with `OVER (...)`. |
+> | **PARTITION BY** | "Start a fresh calculation for each group." Like telling Excel to reset the sum counter every time the car type changes. Without it, you'd get one big total for everything. |
+> | **ORDER BY** (inside OVER) | "Walk through the rows in this order as you calculate." Required for running totals — the order determines which rows have been "seen" so far. |
+> | **Collapsing rows** | What `GROUP BY` does — it merges many rows into one summary row per group. Window functions never collapse; every original row survives. |
+> | **RANK()** | Gives each row a position (1st, 2nd, 3rd…). If two rows tie, they share a rank and the next rank is skipped — two rows at rank 2 means the next is rank 4, not rank 3. |
+> | **QUALIFY** | A filter that runs *after* the window function is calculated. You can't use `WHERE` on a window result (WHERE runs too early, before the window is computed), so `QUALIFY` fills that gap. |
+
+---
+
 ### 🛠️ Workshop
 
 #### Running Total
@@ -332,7 +353,7 @@ SELECT
 FROM claim;
 ```
 
-With `PARTITION BY` to compute the running total per `car_id`:
+**Why add `PARTITION BY`?** Without it, the running total just keeps growing across *all* cars — claims from Car A and Car B pile into the same counter. That's rarely what you want. `PARTITION BY car_id` says: "Reset the counter each time the car_id changes." Think of it as separate bank accounts — each car has its own running balance.
 
 ```sql
 SELECT
@@ -392,7 +413,9 @@ There is a close cousin: `ROW_NUMBER()`. RANK() lets ties share a place and skip
 
 #### Qualify
 
-The `QUALIFY` clause filters rows based on window function results. Why can't we just use `WHERE`? Because WHERE filters rows *before* the window notes are written; QUALIFY filters *after* — like ranking every student first, then keeping only the top 2. For example, to find the highest claim per car type:
+**Why does `QUALIFY` exist?** You might think you can just use `WHERE rank = 1` to filter by rank — but `WHERE` runs *before* the window function is calculated, so the rank column doesn't exist yet when WHERE tries to use it. `QUALIFY` is a special filter that runs *after* window functions, solving exactly this problem. Think of it as a "post-calculation filter."
+
+The `QUALIFY` clause filters rows based on window function results. For example, to find the highest claim per car type:
 
 ```sql
 SELECT
@@ -528,6 +551,10 @@ WHERE avg_claim_amt > (SELECT overall_avg FROM overall_avg);
 <details>
  <summary>Solution for Exercise 5</summary>
 
+**Why a CTE instead of just a subquery?** Because we need the same grouped data *twice* — once to compare each car's total against the average, and once to display the total in the output. Without a CTE you'd have to write the same `GROUP BY` query twice (once inside WHERE, once in the SELECT). The CTE lets you write it once, give it a name (`total_claims`), and reuse it in both places. This is the core reason CTEs exist: write once, reference many times.
+
+**Why aggregate first, then compare?** We have to know the total per car *before* we can compare it to the average. SQL executes in a specific order — you can't filter on a total in the same step that calculates it. The CTE resolves this by separating the two steps: Step 1 (inside the CTE) calculates the totals. Step 2 (the outer SELECT) does the comparison.
+
 ```sql
 WITH total_claims AS (
   SELECT car_id, SUM(claim_amt) AS total_claim_amt
@@ -544,8 +571,20 @@ ORDER BY total_claim_amt DESC;
 
 **Exercise 6:** Create a report that shows each claim, the client's name, the car type, and the city. Additionally, include a column showing the rank of each claim by claim amount for each car type. Filter to show only the top 3 claims for each car type.
 
+> **💡 Suggested approach — build it in two stages:**
+> 1. First, write the 4-table JOIN and add the `RANK()` column — run it and verify the ranking looks right.
+> 2. Then, wrap the entire query in a CTE and add `WHERE rank <= 3` in the outer SELECT.
+>
+> Breaking it into stages means you catch errors early, when you know exactly what changed.
+
 <details>
  <summary>Solution for Exercise 6</summary>
+
+**The strategy — why a CTE here?** We need to rank the claims *and then* filter by rank. The problem: `RANK()` is a window function calculated after the data is assembled, but `WHERE` runs before window functions. This means `WHERE rank <= 3` would fail if placed directly in the main query — the `rank` column doesn't exist when WHERE tries to use it.
+
+The solution: calculate the ranked results inside a CTE, then filter in the outer `SELECT` — which runs after the CTE is already complete. The CTE gives the rank a name so the outer query can reference it.
+
+**Why `PARTITION BY car_type`?** Without it, `RANK()` would rank claims across *all* car types as one giant list. With it, the ranking resets for each car type — so each car type has its own rank 1, rank 2, rank 3.
 
 ```sql
 WITH ranked_claims AS (

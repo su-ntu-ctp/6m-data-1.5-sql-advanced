@@ -40,17 +40,164 @@ Answer:
 
 # **Level Up: The Insurance Auditor Project**
 
-Scenario:  
-You are the Lead Data Analyst for "SafeDrive Insurance". The CEO suspects that certain car types in specific cities are disproportionately expensive.  
-Your Task:  
-Create a comprehensive SQL report that answers the following in a single script (using CTEs):
+**Scenario:** You are the Lead Data Analyst for "SafeDrive Insurance". The CEO suspects that certain car types in specific cities are disproportionately expensive.
 
-1. **Market Comparison:** For every claim, show the claim\_amt alongside the **average claim amount for that specific car\_type**.  
-2. **Risk Ranking:** Within each state, rank the clients by their total claim amounts.  
-3. **Efficiency:** Only show the **top 2** highest-claiming clients per state.  
-4. **Final Output:** The table should include: Client Name, State, Car Type, Total Claimed, State Rank.
+**Final Goal:** Build a single SQL script (using CTEs) that produces a table with: Client Name, State, Car Type, Total Claimed, State Rank — showing only the **top 2 highest-claiming clients per state**.
 
-**Submission:** Save your work as a `.sql` file with comments explaining your logic. Share in **#peer-reviews** on Discord, or keep it in your own notes if self-studying.
+---
+
+> ### 🪜 Stepping Stones — build the solution one layer at a time
+>
+> Don't try to write the full query in one go. Each step below produces a runnable query you can verify before moving to the next. If a step breaks, you only need to look at what just changed.
+
+---
+
+### Step 1 — Understand the landscape
+
+Before writing any CTEs, answer these questions by running simple queries:
+
+- How many unique `car_type` values are in the `car` table? (`SELECT DISTINCT car_type FROM car`)
+- How many unique `state` values are in the `address` table?
+- Do all clients have an address? (`SELECT COUNT(*) FROM client LEFT JOIN address ON client.address_id = address.id WHERE address.id IS NULL`)
+
+Write those queries here:
+
+```sql
+-- Your exploration queries
+```
+
+---
+
+### Step 2 — Market comparison (CTE 1)
+
+**Human logic:** For every claim, we want to see its amount *and* the average amount for its car type side-by-side. We can't do this with `GROUP BY` (that would collapse all claims into one row per car type). We need a window function — `AVG() OVER (PARTITION BY car_type)` — which calculates the average per car type but keeps every individual claim row intact.
+
+Write a query (no CTE yet) that joins `claim` and `car`, and adds a column `avg_claim_by_car_type` using a window function:
+
+```sql
+-- Step 2: Your query here
+```
+
+<details>
+<summary>💡 Step 2 hint</summary>
+
+```sql
+SELECT
+    cl.id,
+    cl.claim_amt,
+    ca.car_type,
+    AVG(cl.claim_amt) OVER (PARTITION BY ca.car_type) AS avg_claim_by_car_type
+FROM claim cl
+INNER JOIN car ca ON cl.car_id = ca.id;
+```
+
+**Check:** You should see the same `avg_claim_by_car_type` repeated across all rows with the same `car_type`. That's correct — every "Sedan" row shows the average for all Sedans.
+
+</details>
+
+---
+
+### Step 3 — Client totals (CTE 2)
+
+**Human logic:** The CEO wants to compare clients, not individual claims. A client with 10 small claims might matter more than a client with 1 large claim. So we need to *add up* all claims per client. This is a `GROUP BY` — we collapse claims into one row per client.
+
+The catch: we can't do this in the same step as Step 2, because Step 2 uses a window function (which needs all rows), while this step uses `GROUP BY` (which collapses rows). We separate them into two CTEs.
+
+Wrap your Step 2 query in a CTE called `market_comparison`, then write a second CTE called `client_totals` that groups by `client_id` and sums `claim_amt`:
+
+```sql
+-- Step 3: Your query here
+WITH market_comparison AS (
+    -- paste Step 2 query here
+),
+client_totals AS (
+    SELECT client_id, SUM(claim_amt) AS total_claimed
+    FROM market_comparison
+    GROUP BY client_id
+)
+SELECT * FROM client_totals LIMIT 10;
+```
+
+<details>
+<summary>💡 Step 3 hint</summary>
+
+```sql
+WITH market_comparison AS (
+    SELECT
+        cl.id, cl.claim_amt, cl.client_id,
+        ca.car_type,
+        AVG(cl.claim_amt) OVER (PARTITION BY ca.car_type) AS avg_claim_by_car_type
+    FROM claim cl
+    INNER JOIN car ca ON cl.car_id = ca.id
+),
+client_totals AS (
+    SELECT client_id, car_type, SUM(claim_amt) AS total_claimed
+    FROM market_comparison
+    GROUP BY client_id, car_type
+)
+SELECT * FROM client_totals LIMIT 10;
+```
+
+**Check:** Each row should represent one client. The same client_id should not appear twice.
+
+</details>
+
+---
+
+### Step 4 — Add names and locations (CTE 3)
+
+**Human logic:** Right now we only have client IDs and totals — no names or states. We need to join `client` (for the name) and `address` (for the state). This is a pure join step — no aggregation, no window functions.
+
+Add a third CTE called `client_details` that joins `client_totals` to `client` and `address`:
+
+```sql
+-- Step 4: Add this CTE after client_totals
+client_details AS (
+    SELECT
+        c.first_name || ' ' || c.last_name AS client_name,
+        a.state,
+        ct.car_type,
+        ct.total_claimed
+    FROM client_totals ct
+    INNER JOIN client c ON ct.client_id = c.id
+    INNER JOIN address a ON c.address_id = a.id
+)
+SELECT * FROM client_details LIMIT 10;
+```
+
+**Check:** You should now see client names and states alongside their totals.
+
+---
+
+### Step 5 — Rank within each state (CTE 4) and filter
+
+**Human logic:** We want to find the top 2 clients *per state* — not the top 2 overall. This requires `RANK() OVER (PARTITION BY state ...)` to reset the ranking for each state. Once we have the rank column, we filter with `WHERE state_rank <= 2`.
+
+**Why can't we just put `WHERE state_rank <= 2` directly?** Because `RANK()` is calculated after the data is assembled — `WHERE` runs too early, before the rank is computed. The solution: put the ranking in a CTE, then filter in the final `SELECT`.
+
+Add a fourth CTE called `ranked_clients` and write the final SELECT:
+
+```sql
+-- Step 5: Complete query
+ranked_clients AS (
+    SELECT *,
+        RANK() OVER (PARTITION BY state ORDER BY total_claimed DESC) AS state_rank
+    FROM client_details
+)
+SELECT
+    client_name AS "Client Name",
+    state       AS "State",
+    car_type    AS "Car Type",
+    ROUND(total_claimed, 2) AS "Total Claimed",
+    state_rank  AS "State Rank"
+FROM ranked_clients
+WHERE state_rank <= 2
+ORDER BY state, state_rank;
+```
+
+---
+
+**Submission:** Assemble all four CTEs into one script, save it as a `.sql` file with comments on each CTE explaining *why* it exists (not just what it does). Share in **#peer-reviews** on Discord, or keep it in your own notes if self-studying.
 
 ---
 
@@ -62,6 +209,8 @@ Create a comprehensive SQL report that answers the following in a single script 
 <summary>Click to reveal — Questions 1–3 Solutions</summary>
 
 ### Question 1
+
+**Why `INNER JOIN`?** We only want claims that have a matching car record. If a claim somehow had a `car_id` pointing to a non-existent car, an INNER JOIN automatically excludes it — keeping our results clean. The car's `id` and the claim's `car_id` are the shared key that connects the two tables.
 
 ```sql
 SELECT 
@@ -77,6 +226,10 @@ INNER JOIN car c ON cl.car_id = c.id;
 
 ### Question 2
 
+**Why `PARTITION BY car_id`?** Without `PARTITION BY`, the running total would keep growing across *all* cars — claims from Car 1 and Car 2 would pile into the same counter. `PARTITION BY car_id` tells the database: "Reset the total counter each time the car_id changes." Each car gets its own independent running total, like separate bank accounts.
+
+**Why `ORDER BY id`?** A running total only makes sense if the rows are visited in a consistent order. `ORDER BY id` ensures we always add claims in the same sequence, giving us a stable, predictable total at each row.
+
 ```sql
 SELECT 
     id,
@@ -87,6 +240,8 @@ FROM claim;
 ```
 
 ### Question 3
+
+**Why a CTE instead of a simple `WHERE`?** Because we can't calculate an average *and* filter by that same average in one step — SQL's execution order doesn't allow it (`WHERE` runs before `GROUP BY`, so the average doesn't exist yet when the filter tries to use it). The CTE solves this by splitting the work: Step 1 (inside `AvgResale`) calculates the average per `car_use`. Step 2 (the outer `SELECT`) uses that pre-calculated average as a filter. The CTE is just a named, reusable intermediate result.
 
 ```sql
 WITH AvgResale AS (
@@ -215,33 +370,26 @@ ORDER BY state, state_rank;
 -- =============================================================================
 ```
 
-## Technical Breakdown
+## Technical Breakdown — Plain English
 
-### CTE Architecture 
+### Why four CTEs?
 
-The solution employs a four-stage CTE pipeline:
+Each CTE solves one problem that must be solved before the next can begin. You can't skip steps because each step depends on the one before it.
 
-1. **market_comparison**: Implements the Market Comparison requirement by joining `claim` and `car` tables, calculating the average claim amount per car type using `AVG() OVER (PARTITION BY car_type)` 
+| CTE | The problem it solves | Plain-English explanation |
+|---|---|---|
+| `market_comparison` | We need each claim's amount *and* the average for its car type in the same row | `AVG() OVER (PARTITION BY car_type)` calculates the average per car type but keeps every individual claim row intact — unlike `GROUP BY`, which would merge all claims into one row per type and lose the detail we need |
+| `client_claim_totals` | We need one total per client, not one row per claim | `GROUP BY client_id` collapses multiple claim rows into a single "total claimed" row per client |
+| `client_with_details` | We only have client IDs so far — we need names and states | A pure join step: no aggregation, just connecting client IDs to names and addresses |
+| `ranked_clients` | We need to rank clients within each state | `RANK() OVER (PARTITION BY state ...)` gives rank 1 to the highest-claiming client in each state, rank 2 to the second, and so on. If two clients tie, they share the same rank and the next rank is skipped — so two clients tied at rank 1 are followed by rank 3, not rank 2 |
 
-2. **client_claim_totals**: Aggregates total claims per client using `GROUP BY client_id, car_type` to prepare for ranking analysis 
+### Why not do it all in one query?
 
-3. **client_with_details**: Joins client and address tables to retrieve full names and state information, concatenating first and last names for readability 
+The two main operations — the window function (Step 1, needs all rows) and the `GROUP BY` (Step 2, collapses rows) — are incompatible in a single query step. You must calculate the window values first, then collapse. CTEs make this separation explicit and readable.
 
-4. **ranked_clients**: Implements Risk Ranking using `RANK() OVER (PARTITION BY state ORDER BY total_claimed DESC)` to identify highest-risk clients within each state 
+### Why `INNER JOIN` throughout?
 
-### Key SQL Techniques Used
-
-**Window Functions**: 
-- `AVG() OVER (PARTITION BY car_type)`: Calculates market baseline without collapsing rows
-- `RANK() OVER (PARTITION BY state ORDER BY total_claimed DESC)`: Assigns rankings within state groups, allowing ties with gap numbering
-
-**Join Strategy**:
-- `INNER JOIN` used throughout to ensure only clients with actual claims and complete address information are included
-- Four-table join path: `claim → car`, `claim → client → address`
-
-**Efficiency Filter**: 
-- `WHERE state_rank <= 2` restricts output to top 2 clients per state
-- Final `ORDER BY state, state_rank` ensures logical presentation for executive review
+We only want clients who have claims *and* have a valid address on record. If any link in the chain is missing (no car, no client, no address), the row is excluded. This keeps the output clean and trustworthy — every row in the final report is a complete, verified record.
 
 ## Expected Output Format 
 
