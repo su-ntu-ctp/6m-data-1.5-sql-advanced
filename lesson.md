@@ -68,7 +68,7 @@ To view the schema of an individual table:
 DESCRIBE address;
 ```
 
-> **Exercise 1:** Describe the other 3 tables. Study their column names and data types.
+👋 **Exercise 1:** Describe the other 3 tables. Study their column names and data types.
 
 #### Summarize Tables
 
@@ -76,7 +76,7 @@ DESCRIBE address;
 SUMMARIZE address;
 ```
 
-> **Exercise 2:** Summarize the other 3 tables. Study their min, max, approx_unique, avg and std (if applicable).
+👋 **Exercise 2:** Summarize the other 3 tables. Study their min, max, approx_unique, avg and std (if applicable).
 
 #### Joins and Unions
 
@@ -258,7 +258,7 @@ SELECT * FROM contractors;
 
 > **Question:** "If I SUMMARIZE the claim table and see a max(claim_amt) that is 10x higher than the average, what does that tell you about our insurance risk?"
 
-**Exercise 3:**
+👋👋👋 **Group Exercise 3:**
 
 Create a master report of every claim. Include the client's name, their car type, and the city they live in.
 
@@ -364,7 +364,7 @@ FROM claim;
 
 > Return a table containing `id, car_id, claim_amt, running_total` from claim, where `running_total` is the running sum of the `claim_amt` column for each `car_id`.
 
-**Exercise 4:** Calculate a running total of insurance payouts over time (ordered by claim_date).
+👋 **Exercise 4:** Calculate a running total of insurance payouts over time (ordered by claim_date).
 
 <details>
  <summary>Solution for Exercise 4</summary>
@@ -546,7 +546,7 @@ FROM avg_claims
 WHERE avg_claim_amt > (SELECT overall_avg FROM overall_avg);
 ```
 
-**Exercise 5:** Create a CTE that finds the total claim amount for each car. Then use this CTE to find the cars with a total claim amount greater than the average.
+👋👋👋 **Group Exercise 5:** Create a CTE that finds the total claim amount for each car. Then use this CTE to find the cars with a total claim amount greater than the average.
 
 <details>
  <summary>Solution for Exercise 5</summary>
@@ -569,7 +569,7 @@ ORDER BY total_claim_amt DESC;
 
 </details>
 
-**Exercise 6:** Create a report that shows each claim, the client's name, the car type, and the city. Additionally, include a column showing the rank of each claim by claim amount for each car type. Filter to show only the top 3 claims for each car type.
+👋👋👋 **Group Exercise 6:** Create a report that shows each claim, the client's name, the car type, and the city. Additionally, include a column showing the rank of each claim by claim amount for each car type. Filter to show only the top 3 claims for each car type.
 
 > **💡 Suggested approach — build it in two stages:**
 > 1. First, write the 4-table JOIN and add the `RANK()` column — run it and verify the ranking looks right.
